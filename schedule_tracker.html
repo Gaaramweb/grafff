@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#020617">
+    <title>Трекер Расписания & Статистика</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        html { -webkit-text-size-adjust: 100%; }
+        input.custom-checkbox { width: 1.5rem; height: 1.5rem; flex-shrink: 0; }
+        button { touch-action: manipulation; }
+        body { padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px)); }
+        nav.app-nav { padding-bottom: env(safe-area-inset-bottom, 0px); }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+
+    <!-- Top Sticky Navigation Bar -->
+    <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-50 px-4 py-3 shadow-lg">
+        <div class="max-w-md mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <div class="w-8 h-8 rounded-lg bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-indigo-400 font-bold text-sm">
+                    18
+                </div>
+                <div>
+                    <h1 class="font-bold text-sm text-white leading-tight">Трекер Расписания</h1>
+                    <p class="text-[10px] text-slate-400">Старт отсчёта: 18 октября</p>
+                </div>
+            </div>
+            <button onclick="switchTab('rules')" class="text-xs bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-slate-700 px-2.5 py-1.5 rounded-lg active:scale-95 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-book-open text-indigo-400"></i> Правила
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-md mx-auto px-4 pt-4">
+
+        <!-- TAB 1: TODAY / DAILY SCHEDULE -->
+        <section id="tab-daily" class="tab-content space-y-4">
+            
+            <!-- Date Navigator -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 shadow-md space-y-3">
+                <div class="flex justify-between items-center">
+                    <button onclick="changeDate(-1)" class="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 active:scale-95 transition">
+                        <i class="fa-solid fa-chevron-left text-xs"></i>
+                    </button>
+                    <div class="text-center">
+                        <div id="selected-date-str" class="font-bold text-base text-white">18 Октября, Воскресенье</div>
+                        <div id="selected-week-info" class="text-xs font-medium text-indigo-400">Неделя 1 • День 7</div>
+                    </div>
+                    <button onclick="changeDate(1)" class="w-8 h-8 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300 active:scale-95 transition">
+                        <i class="fa-solid fa-chevron-right text-xs"></i>
+                    </button>
+                </div>
+
+                <div class="flex gap-2">
+                    <button onclick="jumpToDate('2026-10-18')" class="flex-1 py-1.5 bg-slate-800 border border-slate-700 rounded-xl text-xs font-medium text-slate-300 hover:text-white transition">
+                        18 Окт (Старт)
+                    </button>
+                    <button onclick="jumpToToday()" class="flex-1 py-1.5 bg-indigo-600/30 border border-indigo-500/40 rounded-xl text-xs font-medium text-indigo-300 hover:text-white transition">
+                        Сегодня
+                    </button>
+                </div>
+            </div>
+
+            <!-- Daily Progress Bar -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2">
+                <div class="flex justify-between items-center text-xs">
+                    <span class="text-slate-400">Прогресс за день</span>
+                    <span id="daily-progress-text" class="font-bold text-indigo-400">0% (0/0)</span>
+                </div>
+                <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
+                    <div id="daily-progress-bar" class="bg-indigo-500 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Main Shift Summary -->
+            <div class="bg-slate-900/60 border border-slate-800 rounded-xl p-3 flex justify-between items-center">
+                <div class="flex items-center space-x-2.5">
+                    <i class="fa-solid fa-briefcase text-amber-400 text-sm"></i>
+                    <div>
+                        <span class="text-xs text-slate-400 block">Дневной график</span>
+                        <span id="day-shift-text" class="text-xs font-medium text-slate-200">Работа + Университет: 8:30–21:00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tasks Container -->
+            <div id="tasks-container" class="space-y-2.5">
+                <!-- Dynamically Populated -->
+            </div>
+        </section>
+
+        <!-- TAB 2: FULL SCHEDULE (WEEK 1 & WEEK 2) -->
+        <section id="tab-schedule" class="tab-content hidden space-y-4">
+            <!-- Week Selector -->
+            <div class="grid grid-cols-2 gap-2 bg-slate-900 p-1 rounded-2xl border border-slate-800">
+                <button id="btn-week-1" onclick="switchScheduleWeek(1)" class="py-2 text-xs font-semibold rounded-xl transition text-white bg-indigo-600 shadow">
+                    Неделя 1
+                </button>
+                <button id="btn-week-2" onclick="switchScheduleWeek(2)" class="py-2 text-xs font-semibold rounded-xl transition text-slate-400 hover:text-white">
+                    Неделя 2
+                </button>
+            </div>
+
+            <!-- Days List -->
+            <div id="schedule-week-container" class="space-y-3">
+                <!-- Dynamically Populated -->
+            </div>
+        </section>
+
+        <!-- TAB 3: STATISTICS (FROM OCT 18) -->
+        <section id="tab-stats" class="tab-content hidden space-y-4">
+            
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+                <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                    <h2 class="font-bold text-sm text-white flex items-center gap-2">
+                        <i class="fa-solid fa-chart-line text-indigo-400"></i> Общий прогресс с 18 октября
+                    </h2>
+                    <span id="stats-start-tag" class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full border border-slate-700">18.10.2026</span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="bg-slate-950 border border-slate-800 p-3 rounded-xl text-center">
+                        <span class="text-[11px] text-slate-400 block mb-1">Выполнение всего</span>
+                        <span id="stats-total-pct" class="text-2xl font-extrabold text-indigo-400">0%</span>
+                    </div>
+                    <div class="bg-slate-950 border border-slate-800 p-3 rounded-xl text-center">
+                        <span class="text-[11px] text-slate-400 block mb-1">Серия дней (Streak)</span>
+                        <span id="stats-streak" class="text-2xl font-extrabold text-amber-400 flex items-center justify-center gap-1">
+                            0 <i class="fa-solid fa-fire text-amber-500 text-lg"></i>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Category Breakdown Stats -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+                <h3 class="font-bold text-xs text-slate-300 uppercase tracking-wider">По категориям (с 18.10)</h3>
+                <div id="category-stats-list" class="space-y-3">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Day-by-day History Cards -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+                <h3 class="font-bold text-xs text-slate-300 uppercase tracking-wider">История выполнения по дням</h3>
+                <div id="daily-history-list" class="space-y-2 max-h-60 overflow-y-auto pr-1 no-scrollbar">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+        </section>
+
+        <!-- TAB 4: GENERAL RULES -->
+        <section id="tab-rules" class="tab-content hidden space-y-4">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4 shadow-lg">
+                <div class="border-b border-slate-800 pb-2">
+                    <h2 class="font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-compass text-indigo-400"></i> Общий режим дня
+                    </h2>
+                </div>
+
+                <div class="text-xs space-y-2 text-slate-300">
+                    <div class="flex justify-between py-1.5 border-b border-slate-800/80">
+                        <span class="text-slate-400">7:00</span>
+                        <span class="font-semibold text-amber-400">Подъём каждый день</span>
+                    </div>
+                    <div class="flex justify-between py-1.5 border-b border-slate-800/80">
+                        <span class="text-slate-400">7:00–7:30</span>
+                        <span class="font-medium text-sky-300">Английский (слова / AI-диалог)</span>
+                    </div>
+                    <div class="flex justify-between py-1.5 border-b border-slate-800/80">
+                        <span class="text-slate-400">7:30–8:15</span>
+                        <span class="text-slate-300">Завтрак, сборы, дорога</span>
+                    </div>
+                    <div class="flex justify-between py-1.5 border-b border-slate-800/80">
+                        <span class="text-slate-400">День</span>
+                        <span class="font-medium text-indigo-300">Работа / Университет</span>
+                    </div>
+                    <div class="flex justify-between py-1.5 border-b border-slate-800/80">
+                        <span class="text-slate-400">Вечер</span>
+                        <span class="text-slate-300">Юриспруденция (1ч) + SEO/контент</span>
+                    </div>
+                    <div class="flex justify-between py-1.5 border-b border-slate-800/80">
+                        <span class="text-slate-400">23:30–00:00</span>
+                        <span class="text-slate-300">Подготовка ко сну</span>
+                    </div>
+                    <div class="flex justify-between py-1.5">
+                        <span class="text-slate-400">00:00–00:30</span>
+                        <span class="text-slate-400">Сон</span>
+                    </div>
+                </div>
+
+                <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 text-xs text-amber-200 space-y-1">
+                    <div class="font-bold flex items-center gap-1.5 text-amber-400">
+                        <i class="fa-solid fa-triangle-exclamation"></i> Главное правило вечера:
+                    </div>
+                    <p class="text-[11px] text-amber-200/90 leading-relaxed">
+                        Если возвращаешься позже <strong>21:00</strong> — <u>НЕ добавляй час SEO</u>. В такой день делай только <strong>1 час учёбы</strong> + <strong>20–30 минут лёгкого английского</strong>.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="app-nav fixed bottom-0 left-0 right-0 bg-slate-900/95 border-t border-slate-800 backdrop-blur-md z-50">
+        <div class="max-w-md mx-auto grid grid-cols-4 px-2 py-1.5">
+            <button onclick="switchTab('daily')" id="nav-daily" class="nav-btn flex flex-col items-center py-1 text-indigo-400">
+                <i class="fa-solid fa-calendar-day text-base"></i>
+                <span class="text-[10px] font-medium mt-1">Сегодня</span>
+            </button>
+            <button onclick="switchTab('schedule')" id="nav-schedule" class="nav-btn flex flex-col items-center py-1 text-slate-400 hover:text-slate-200">
+                <i class="fa-solid fa-list-check text-base"></i>
+                <span class="text-[10px] font-medium mt-1">График</span>
+            </button>
+            <button onclick="switchTab('stats')" id="nav-stats" class="nav-btn flex flex-col items-center py-1 text-slate-400 hover:text-slate-200">
+                <i class="fa-solid fa-chart-pie text-base"></i>
+                <span class="text-[10px] font-medium mt-1">Статистика</span>
+            </button>
+            <button onclick="switchTab('rules')" id="nav-rules" class="nav-btn flex flex-col items-center py-1 text-slate-400 hover:text-slate-200">
+                <i class="fa-solid fa-shield-halved text-base"></i>
+                <span class="text-[10px] font-medium mt-1">Правила</span>
+            </button>
+        </div>
+    </nav>
+
+    <script>
+        // Start date: Oct 18, 2026
+        const START_DATE = "2026-10-18";
+
+        // Day Template Definitions for Week 1 and Week 2
+        const rawTemplates = {
+            1: [ // Week 1 (0: Mon, 1: Tue ... 6: Sun)
+                {
+                    dayName: "Понедельник",
+                    shift: "Работа + Университет: 8:30–21:00",
+                    tasks: [
+                        { id: "w1_m1", time: "07:00–07:30", text: "Английский: 10 новых слов + чтение текста", cat: "english", hours: 0.5 },
+                        { id: "w1_m2", time: "07:30–08:15", text: "Завтрак, сборы, дорога", cat: "routine", hours: 0.75 },
+                        { id: "w1_m3", time: "08:30–21:00", text: "Работа + Университет", cat: "work", hours: 12.5 },
+                        { id: "w1_m4", time: "21:15–22:15", text: "Учёба по юриспруденции", cat: "law", hours: 1.0 },
+                        { id: "w1_m5", time: "22:15–22:45", text: "SEO: как Google находит и индексирует сайты", cat: "seo", hours: 0.5 },
+                        { id: "w1_m6", time: "22:45–23:00", text: "План на завтра", cat: "routine", hours: 0.25 },
+                        { id: "w1_m7", time: "23:30", text: "Отход ко сну", cat: "sleep", hours: 0 }
+                    ]
+                },
+                {
+                    dayName: "Вторник",
+                    shift: "Работа + Университет: 8:30–21:00",
+                    tasks: [
+                        { id: "w1_t1", time: "07:00–07:30", text: "Английский: AI-диалог «My day, studies and work»", cat: "english", hours: 0.5 },
+                        { id: "w1_t2", time: "07:30–08:15", text: "Завтрак, сборы", cat: "routine", hours: 0.75 },
+                        { id: "w1_t3", time: "08:30–21:00", text: "Работа + Университет", cat: "work", hours: 12.5 },
+                        { id: "w1_t4", time: "21:15–22:15", text: "Учёба по юриспруденции", cat: "law", hours: 1.0 },
+                        { id: "w1_t5", time: "22:15–23:00", text: "SEO: поисковый интент", cat: "seo", hours: 0.75 },
+                        { id: "w1_t6", time: "23:30", text: "Отход ко сну", cat: "sleep", hours: 0 }
+                    ]
+                },
+                {
+                    dayName: "Среда",
+                    shift: "Работа + Университет: 10:00–21:00",
+                    tasks: [
+                        { id: "w1_w1", time: "07:00–07:30", text: "Английский: грамматика A2", cat: "english", hours: 0.5 },
+                        { id: "w1_w2", time: "07:30–08:15", text: "Завтрак, сборы", cat: "routine", hours: 0.75 },
+                        { id: "w1_w3", time: "08:15–09:30", text: "Свободное время / дорога", cat: "free", hours: 1.25 },
+                        { id: "w1_w4", time: "10:00–21:00", text: "Работа + Университет", cat: "work", hours: 11.0 },
+                        { id: "w1_w5", time: "21:15–22:15", text: "Учёба по юриспруденции", cat: "law", hours: 1.0 },
+                        { id: "w1_w6", time: "22:15–23:00", text: "SEO: ключевые слова и кластеры", cat: "seo", hours: 0.75 },
+                        { id: "w1_w7", time: "23:30", text: "Отход ко сну", cat: "sleep", hours: 0 }
+                    ]
+                },
+                {
+                    dayName: "Четверг",
+                    shift: "Работа + Университет: 12:00–21:00",
+                    tasks: [
+                        { id: "w1_th1", time: "07:00–07:30", text: "Английский: аудирование + пересказ AI", cat: "english", hours: 0.5 },
+                        { id: "w1_th2", time: "07:30–08:15", text: "Завтрак", cat: "routine", hours: 0.75 },
+                        { id: "w1_th3", time: "08:15–11:30", text: "Свободный блок: SEO-теория или отдых", cat: "free", hours: 3.25 },
+                        { id: "w1_th4", time: "12:00–21:00", text: "Работа + Университет", cat: "work", hours: 9.0 },
+                        { id: "w1_th5", time: "21:15–22:15", text: "Учёба по юриспруденции", cat: "law", hours: 1.0 },
+                        { id: "w1_th6", time: "22:15–23:00", text: "SEO: title, meta description, H1–H3", cat: "seo", hours: 0.75 },
+                        { id: "w1_th7", time: "23:30", text: "Отход ко сну", cat: "sleep", hours: 0 }
+                    ]
+                },
+                {
+                    dayName: "Пятница",
+                    shift: "Вуз: 8:30–12:00 | Работа: 16:00–21:00",
+                    tasks: [
+                        { id: "w1_f1", time: "07:00–07:30", text: "Английский: AI-диалог + новые фразы", cat: "english", hours: 0.5 },
+                        { id: "w1_f2", time: "07:30–08:15", text: "Завтрак, сборы", cat: "routine", hours: 0.75 },
+                        { id: "w1_f3", time: "08:30–12:00", text: "Университет", cat: "work", hours: 3.5 },
+                        { id: "w1_f4", time: "12:30–13:30", text: "Учёба по юриспруденции", cat: "law", hours: 1.0 },
+                        { id: "w1_f5", time: "13:30–14:30", text: "SEO: анализ 3 статей конкурентов", cat: "seo", hours: 1.0 },
+                        { id: "w1_f6", time: "14:30–15:30", text: "Еда / отдых", cat: "routine", hours: 1.0 },
+                        { id: "w1_f7", time: "16:00–21:00", text: "Работа", cat: "work", hours: 5.0 },
+                        { id: "w1_f8", time: "21:30–22:00", text: "Повторение английских слов", cat: "english", hours: 0.5 },
+                        { id: "w1_f9", time: "23:30", text: "Отход ко сну", cat: "sleep", hours: 0 }
+                    ]
+                },
+                {
+                    dayName: "Суббота",
+                    shift: "Выходной от работы",
+                    tasks: [
+                        { id: "w1_s1", time: "07:00–07:30", text: "Английский: speaking с AI", cat: "english", hours: 0.5 },
+                        { id: "w1_s2", time: "07:30–08:30", text: "Завтрак / отдых", cat: "routine", hours: 1.0 },
+                        { id: "w1_s3", time: "08:30–11:30", text: "SEO: базовый аудит тестового WordPress-сайта", cat: "seo", hours: 3.0 },
+                        { id: "w1_s4", time: "11:30–12:30", text: "Перерыв / прогулка", cat: "free", hours: 1.0 },
+                        { id: "w1_s5", time: "12:30–14:00", text: "WordPress: структура, категории, перелинковка", cat: "seo", hours: 1.5 },
+                        { id: "w1_s6", time: "14:00–15:00", text: "Обед", cat: "routine", hours: 1.0 },
+                        { id: "w1_s7", time: "15:00–16:30", text: "Контент: тема статьи и сбор ключей", cat: "seo", hours: 1.5 },
+                        { id: "w1_s8", time: "16:30–17:30", text: "Учёба по юриспруденции", cat: "law", hours: 1.0 },
+                        { id: "w1_s9", time: "17:30–19:00", text: "Отдых / спорт", cat: "free", hours: 1.5 },
+                        { id: "w1_s10", time: "19:00–20:30", text: "Форекс-бот: демо, журнал сделок, 1 стратегия", cat: "forex", hours: 1.5 },
+                        { id: "w1_s11", time: "20:30–21:30", text: "Ужин / отдых", cat: "routine", hours: 1.0 },
+                        { id: "w1_s12", time: "21:30–22:30", text: "Английский: сериал/YouTube с субтитрами", cat: "english", hours: 1.0 },
+                        { id: "w1_s13", time: "23:30", text: "Отход ко сну", cat: "sleep", hours: 0 }
+                    ]
+                },
+                {
+                    dayName: "Воскресенье",
+                    shift: "Работа + Университет: 8:30–21:00",
+                    tasks: [
+                        { id: "w1_su1", time: "07:00–07:30", text: "Английский: повторение слов недели", cat: "english", hours: 0.5 },
+                        { id: "w1_su2", time: "07:30–08:15", text: "Завтрак, сборы", cat: "routine", hours: 0.75 },
+                        { id: "w1_su3", time: "08:30–21:00", text: "Работа + Университет", cat: "work", hours: 12.5 },
+                        { id: "w1_su4", time: "21:15–22:15", text: "Учёба по юриспруденции", cat: "law", hours: 1.0 },
+                        { id: "w1_su5", time: "22:15–23:00", text: "Итоги недели: SEO, английский, учёба", cat: "seo", hours: 0.75 },
+                        { id: "w1_su6", time: "23:30", text: "Отход ко сну", cat: "sleep", hours: 0 }
+                    ]
+                }
+            ],
+            2: [ // Week 2
+                {
+                    dayName: "Понедельник",
+                    shift: "Работа + Университет: 10:00–21:00",
+                    tasks: [
+                        { id: "w2_m1", time: "07:00–07:30", text: "Английский: грамматика A2 + AI-диалог", cat: "english", hours: 0.5 },
+                        { id: "w2_m2", time: "07:30–08:15", text: "Завтрак", cat: "routine", hours: 0.75 },
+                        { id: "w2_m3", time: "08:15–09:30", text: "Свободное время / дорога", cat: "free", hours: 1.25 },
+                        { id: "w2_m4", time: "10:00–21:00", text: "Работа + Университет", cat: "work", hours: 11.0 },
+                        { id: "w2_m5", time: "21:15–22:15", text: "Учёба по юриспруденции", cat: "law", hours: 1.0 },
+                        { id: "w2_m6", time: "22:15–23:00", text: "SEO: Google Search Console — показы, клики, CTR", cat: "seo", hours: 0.75 },
+                        { id: "w2_m7", time: "23:30", text: "Отход ко сну", cat: "sleep", hours: 0 }
+                    ]
+                },
+                {
+                    dayName: "Вторник",
+                    shift: "Работа + Университет: 8:30–21:00",
+                    tasks: [
+                        { id: "w2_t1", time: "07:00–07:30", text: "Английский: чтение статьи + пересказ AI", cat: "english", hours: 0.5 },
+                        { id: "w2_t2", time: "07:30–08:15", text: "Завтрак, сборы", cat: "routine", hours: 0.75 },
+                        { id: "w2_t3", time: "08:30–21:00", text: "Работа + Университет", cat: "work", hours: 12.5 },
+                        { id: "w2_t4", time: "21:15–22:15", text: "Учёба по юриспруденции", cat: "law", hours: 1.0 },
+                        { id: "w2_t5", time: "22:15–23:00", text: "SEO: анализ конкурентов по теме", cat: "seo", hours: 0.75 },
+                        { id: "w2_t6", time: "23:30", text: "Отход ко сну", cat: "sleep", hours: 0 }
+                    ]
+                },
+                {
+                    dayName: "Среда",
+                    shift: "Работа + Университет: 12:00–21:00",
+                    tasks: [
+                        { id: "w2_w1", time: "07:00–07:30", text: "Английский: аудио + разговорная практика", cat: "english", hours: 0.5 },
+                        { id: "w2_w2", time: "07:30–08:15", text: "Завтрак", cat: "routine", hours: 0.75 },
+                        { id: "w2_w3", time: "08:15–11:30", text: "Свободный блок: SEO-практика или отдых", cat: "free", hours: 3.25 },
+                        { id: "w2_w4", time: "12:00–21:00", text: "Работа + Университет", cat: "work", hours: 9.0 },
+                        { id: "w2_w5", time: "21:15–22:15", text: "Учёба по юриспруденции", cat: "law", hours: 1.0 },
+                        { id: "w2_w6", time: "22:15–23:00", text: "SEO: план статьи — заголовок, структура, ключи", cat: "seo", hours: 0.75 },
+                        { id: "w2_w7", time: "23:30", text: "Отход ко сну", cat: "sleep", hours: 0 }
+                    ]
+                },
+                {
+                    dayName: "Четверг",
+                    shift: "Работа + Университет: 12:00–21:00",
+                    tasks: [
+                        { id: "w2_th1", time: "07:00–07:30", text: "Английский: письмо 100–150 слов + AI", cat: "english", hours: 0.5 },
+                        { id: "w2_th2", time: "07:30–08:15", text: "Завтрак", cat: "routine", hours: 0.75 },
+                        { id: "w2_th3", time: "08:15–11:30", text: "Свободный блок: WordPress или отдых", cat: "free", hours: 3.25 },
+                        { id: "w2_th4", time: "12:00–21:00", text: "Работа + Университет", cat: "work", hours: 9.0 },
+                        { id: "w2_th5", time: "21:15–22:15", text: "Учёба по юриспруденции", cat: "law", hours: 1.0 },
+                        { id: "w2_th6", time: "22:15–23:00", text: "WordPress: черновик статьи по SEO-плану", cat: "seo", hours: 0.75 },
+                        { id: "w2_th7", time: "23:30", text: "Отход ко сну", cat: "sleep", hours: 0 }
+                    ]
+                },
+                {
+                    dayName: "Пятница",
+                    shift: "Вуз: 8:30–12:00 | Работа: 16:00–21:00",
+                    tasks: [
+                        { id: "w2_f1", time: "07:00–07:30", text: "Английский: разговорная практика", cat: "english", hours: 0.5 },
+                        { id: "w2_f2", time: "07:30–08:15", text: "Завтрак, сборы", cat: "routine", hours: 0.75 },
+                        { id: "w2_f3", time: "08:30–12:00", text: "Университет", cat: "work", hours: 3.5 },
+                        { id: "w2_f4", time: "12:30–13:30", text: "Учёба по юриспруденции", cat: "law", hours: 1.0 },
+                        { id: "w2_f5", time: "13:30–14:30", text: "SEO: оптимизация черновика статьи", cat: "seo", hours: 1.0 },
+                        { id: "w2_f6", time: "14:30–15:30", text: "Еда / отдых", cat: "routine", hours: 1.0 },
+                        { id: "w2_f7", time: "16:00–21:00", text: "Работа", cat: "work", hours: 5.0 },
+                        { id: "w2_f8", time: "21:30–22:00", text: "Повторение английского", cat: "english", hours: 0.5 },
+                        { id: "w2_f9", time: "23:30", text: "Отход ко сну", cat: "sleep", hours: 0 }
+                    ]
+                },
+                {
+                    dayName: "Суббота",
+                    shift: "Выходной от работы",
+                    tasks: [
+                        { id: "w2_s1", time: "07:00–07:30", text: "Английский: speaking + vocabulary", cat: "english", hours: 0.5 },
+                        { id: "w2_s2", time: "07:30–08:30", text: "Завтрак / отдых", cat: "routine", hours: 1.0 },
+                        { id: "w2_s3", time: "08:30–11:30", text: "SEO: полный аудит небольшого сайта", cat: "seo", hours: 3.0 },
+                        { id: "w2_s4", time: "12:30–14:00", text: "WordPress: оформление статьи, фото, alt-тексты", cat: "seo", hours: 1.5 },
+                        { id: "w2_s5", time: "15:00–16:30", text: "Контент: 3 идеи Reels/Shorts на тему SEO", cat: "seo", hours: 1.5 },
+                        { id: "w2_s6", time: "16:30–17:30", text: "Учёба по юриспруденции", cat: "law", hours: 1.0 },
+                        { id: "w2_s7", time: "19:00–20:30", text: "Форекс-бот: демо, тест стратегии", cat: "forex", hours: 1.5 },
+                        { id: "w2_s8", time: "21:30–22:30", text: "Английский: видео или подкаст с субтитрами", cat: "english", hours: 1.0 },
+                        { id: "w2_s9", time: "23:30", text: "Отход ко сну", cat: "sleep", hours: 0 }
+                    ]
+                },
+                {
+                    dayName: "Воскресенье",
+                    shift: "Работа + Университет: 8:30–21:00",
+                    tasks: [
+                        { id: "w2_su1", time: "07:00–07:30", text: "Английский: итоговый диалог с AI", cat: "english", hours: 0.5 },
+                        { id: "w2_su2", time: "07:30–08:15", text: "Завтрак, сборы", cat: "routine", hours: 0.75 },
+                        { id: "w2_su3", time: "08:30–21:00", text: "Работа + Университет", cat: "work", hours: 12.5 },
+                        { id: "w2_su4", time: "21:15–22:15", text: "Учёба по юриспруденции", cat: "law", hours: 1.0 },
+                        { id: "w2_su5", time: "22:15–23:00", text: "Планирование следующей недели", cat: "seo", hours: 0.75 },
+                        { id: "w2_su6", time: "23:30", text: "Отход ко сну", cat: "sleep", hours: 0 }
+                    ]
+                }
+            ]
+        };
+
+        const categories = {
+            english: { name: "Английский", bg: "bg-sky-500/10", border: "border-sky-500/30", text: "text-sky-300", badgeBg: "bg-sky-950 text-sky-300" },
+            law: { name: "Юриспруденция", bg: "bg-indigo-500/10", border: "border-indigo-500/30", text: "text-indigo-300", badgeBg: "bg-indigo-950 text-indigo-300" },
+            seo: { name: "SEO & WordPress", bg: "bg-emerald-500/10", border: "border-emerald-500/30", text: "text-emerald-300", badgeBg: "bg-emerald-950 text-emerald-300" },
+            forex: { name: "Форекс-бот", bg: "bg-amber-500/10", border: "border-amber-500/30", text: "text-amber-300", badgeBg: "bg-amber-950 text-amber-300" },
+            work: { name: "Работа/Вуз", bg: "bg-orange-500/10", border: "border-orange-500/30", text: "text-orange-300", badgeBg: "bg-orange-950 text-orange-300" },
+            routine: { name: "Быт/Сборы", bg: "bg-slate-800/40", border: "border-slate-800", text: "text-slate-400", badgeBg: "bg-slate-900 text-slate-400" },
+            free: { name: "Отдых/Спорт", bg: "bg-teal-500/10", border: "border-teal-500/30", text: "text-teal-300", badgeBg: "bg-teal-950 text-teal-300" },
+            sleep: { name: "Сон", bg: "bg-slate-900", border: "border-slate-800", text: "text-slate-500", badgeBg: "bg-slate-950 text-slate-500" }
+        };
+
+        // Current Selected Date in 'YYYY-MM-DD'
+        let currentDateStr = "2026-10-18";
+        let activeScheduleWeek = 1;
+
+        // Local Storage Key
+        const STORAGE_KEY = "schedule_tracker_data_v1";
+        let appState = loadState();
+
+        function loadState() {
+            try {
+                const data = localStorage.getItem(STORAGE_KEY);
+                return data ? JSON.parse(data) : {};
+            } catch (e) {
+                return {};
+            }
+        }
+
+        function saveState() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+            } catch (e) {}
+        }
+
+        // Local date as YYYY-MM-DD (toISOString() uses UTC and shifts the day for UTC+ users)
+        function toLocalDateStr(d) {
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        }
+
+        // Helper: Calculate week and day index from date relative to Oct 18, 2026 (Sunday)
+        function getScheduleForDate(dateStr) {
+            const start = new Date(START_DATE + "T00:00:00");
+            const current = new Date(dateStr + "T00:00:00");
+            const diffTime = current - start;
+            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+            // Oct 18, 2026 is Sunday (Week 1, Day index 6)
+            // Day index: Mon=0, Tue=1, Wed=2, Thu=3, Fri=4, Sat=5, Sun=6
+            let jsDay = current.getDay(); 
+            let dayIndex = (jsDay === 0) ? 6 : jsDay - 1;
+
+            // Week calculation (1 or 2)
+            // Oct 18 is Sun of Week 1
+            // Days from Oct 19 start Week 2, etc.
+            let daysFromMonOct12 = diffDays + 6; 
+            let totalWeeks = Math.floor(daysFromMonOct12 / 7);
+            let weekNum = (totalWeeks % 2 === 0) ? 1 : 2;
+
+            const template = rawTemplates[weekNum][dayIndex];
+
+            return {
+                weekNum,
+                dayIndex,
+                template,
+                diffDays
+            };
+        }
+
+        function formatDateDisplay(dateStr) {
+            const d = new Date(dateStr + "T00:00:00");
+            const months = ["Января", "Февраля", "Марта", "Апреля", "Мая", "Июня", "Июля", "Августа", "Сентября", "Октября", "Ноября", "Декабря"];
+            const days = ["Воскресенье", "Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота"];
+            
+            return `${d.getDate()} ${months[d.getMonth()]}, ${days[d.getDay()]}`;
+        }
+
+        function changeDate(offset) {
+            const d = new Date(currentDateStr + "T00:00:00");
+            d.setDate(d.getDate() + offset);
+            currentDateStr = toLocalDateStr(d);
+            renderDailyTab();
+        }
+
+        function jumpToToday() {
+            const today = new Date();
+            currentDateStr = toLocalDateStr(today);
+            renderDailyTab();
+        }
+
+        function jumpToDate(dateStr) {
+            currentDateStr = dateStr;
+            renderDailyTab();
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('text-indigo-400');
+                btn.classList.add('text-slate-400');
+            });
+            document.getElementById(`nav-${tabId}`).classList.add('text-indigo-400');
+            document.getElementById(`nav-${tabId}`).classList.remove('text-slate-400');
+
+            if (tabId === 'stats') {
+                renderStatsTab();
+            } else if (tabId === 'schedule') {
+                renderFullScheduleTab();
+            }
+        }
+
+        function toggleTask(dateStr, taskId) {
+            if (!appState[dateStr]) {
+                appState[dateStr] = {};
+            }
+            appState[dateStr][taskId] = !appState[dateStr][taskId];
+            saveState();
+            renderDailyTab();
+        }
+
+        function renderDailyTab() {
+            const dateInfo = getScheduleForDate(currentDateStr);
+            const template = dateInfo.template;
+
+            document.getElementById('selected-date-str').innerText = formatDateDisplay(currentDateStr);
+            document.getElementById('selected-week-info').innerText = `Неделя ${dateInfo.weekNum} • ${template.dayName}`;
+            document.getElementById('day-shift-text').innerText = template.shift;
+
+            const dayState = appState[currentDateStr] || {};
+            const container = document.getElementById('tasks-container');
+            container.innerHTML = '';
+
+            let completedCount = 0;
+            const totalTasks = template.tasks.length;
+
+            template.tasks.forEach(task => {
+                const isChecked = !!dayState[task.id];
+                if (isChecked) completedCount++;
+
+                const cat = categories[task.cat] || categories.routine;
+
+                const card = document.createElement('div');
+                card.className = `p-3 rounded-2xl border ${cat.bg} ${cat.border} flex items-center justify-between gap-3 active:scale-[0.99] transition`;
+
+                card.innerHTML = `
+                    <div class="flex items-start space-x-3 flex-1 min-w-0">
+                        <input type="checkbox" id="chk-${task.id}" ${isChecked ? 'checked' : ''} 
+                            onchange="toggleTask('${currentDateStr}', '${task.id}')"
+                            class="custom-checkbox mt-0.5 h-5 w-5 rounded-md border-slate-700 bg-slate-950 text-indigo-600 focus:ring-0 cursor-pointer accent-indigo-600">
+                        <label for="chk-${task.id}" class="cursor-pointer flex-1 min-w-0">
+                            <div class="flex items-center gap-2 mb-0.5">
+                                <span class="text-xs font-bold ${cat.text}">${task.time}</span>
+                                <span class="text-[9px] px-1.5 py-0.2 rounded font-medium ${cat.badgeBg}">${cat.name}</span>
+                            </div>
+                            <p class="text-xs text-slate-200 font-medium leading-snug">${task.text}</p>
+                        </label>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            // Progress Bar Calculation
+            const pct = totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
+            document.getElementById('daily-progress-text').innerText = `${pct}% (${completedCount}/${totalTasks})`;
+            document.getElementById('daily-progress-bar').style.width = `${pct}%`;
+        }
+
+        function switchScheduleWeek(weekNum) {
+            activeScheduleWeek = weekNum;
+            document.getElementById('btn-week-1').className = weekNum === 1 
+                ? "py-2 text-xs font-semibold rounded-xl transition text-white bg-indigo-600 shadow"
+                : "py-2 text-xs font-semibold rounded-xl transition text-slate-400 hover:text-white";
+            document.getElementById('btn-week-2').className = weekNum === 2 
+                ? "py-2 text-xs font-semibold rounded-xl transition text-white bg-indigo-600 shadow"
+                : "py-2 text-xs font-semibold rounded-xl transition text-slate-400 hover:text-white";
+            renderFullScheduleTab();
+        }
+
+        function renderFullScheduleTab() {
+            const container = document.getElementById('schedule-week-container');
+            container.innerHTML = '';
+
+            const days = rawTemplates[activeScheduleWeek];
+            days.forEach(day => {
+                const dayBox = document.createElement('div');
+                dayBox.className = "bg-slate-900 border border-slate-800 rounded-2xl p-3.5 space-y-2.5";
+
+                let tasksHtml = day.tasks.map(t => {
+                    const cat = categories[t.cat] || categories.routine;
+                    return `
+                        <div class="flex items-center justify-between text-xs py-1 border-b border-slate-800/50 last:border-0">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-[10px] font-bold ${cat.text} w-20">${t.time}</span>
+                                <span class="text-slate-300 text-[11px]">${t.text}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                dayBox.innerHTML = `
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-2">
+                        <span class="font-bold text-sm text-indigo-300">${day.dayName}</span>
+                        <span class="text-[10px] text-slate-400">${day.shift}</span>
+                    </div>
+                    <div class="space-y-1">
+                        ${tasksHtml}
+                    </div>
+                `;
+                container.appendChild(dayBox);
+            });
+        }
+
+        function renderStatsTab() {
+            const start = new Date(START_DATE + "T00:00:00");
+            const today = new Date();
+            
+            let totalPossibleTasks = 0;
+            let totalCompletedTasks = 0;
+
+            const categoryStats = {
+                english: { name: "Английский", totalHours: 0, doneHours: 0, cat: "english" },
+                law: { name: "Юриспруденция", totalHours: 0, doneHours: 0, cat: "law" },
+                seo: { name: "SEO & WordPress", totalHours: 0, doneHours: 0, cat: "seo" },
+                forex: { name: "Форекс-бот", totalHours: 0, doneHours: 0, cat: "forex" }
+            };
+
+            let streak = 0;
+            let tempStreak = 0;
+            let dayListHtml = '';
+
+            // Iterate day by day from Oct 18 to Today
+            let curr = new Date(start);
+            while (curr <= today) {
+                const dateStr = toLocalDateStr(curr);
+                const info = getScheduleForDate(dateStr);
+                const dayState = appState[dateStr] || {};
+
+                let dayTasksTotal = info.template.tasks.length;
+                let dayTasksDone = 0;
+
+                info.template.tasks.forEach(task => {
+                    const isDone = !!dayState[task.id];
+                    totalPossibleTasks++;
+                    if (isDone) {
+                        totalCompletedTasks++;
+                        dayTasksDone++;
+                    }
+
+                    if (categoryStats[task.cat]) {
+                        categoryStats[task.cat].totalHours += task.hours;
+                        if (isDone) {
+                            categoryStats[task.cat].doneHours += task.hours;
+                        }
+                    }
+                });
+
+                const dayPct = dayTasksTotal > 0 ? Math.round((dayTasksDone / dayTasksTotal) * 100) : 0;
+
+                // Streak logic (e.g. >= 70% completion count towards streak)
+                if (dayPct >= 70) {
+                    tempStreak++;
+                    streak = tempStreak;
+                } else {
+                    tempStreak = 0;
+                }
+
+                dayListHtml = `
+                    <div class="flex items-center justify-between p-2.5 rounded-xl bg-slate-950 border border-slate-800/80 text-xs">
+                        <div>
+                            <span class="font-bold text-slate-200 block">${formatDateDisplay(dateStr)}</span>
+                            <span class="text-[10px] text-slate-400">Выполнено ${dayTasksDone} из ${dayTasksTotal} задач</span>
+                        </div>
+                        <span class="font-bold text-xs px-2 py-1 rounded-lg ${dayPct >= 80 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : dayPct >= 50 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-slate-800 text-slate-400'}">
+                            ${dayPct}%
+                        </span>
+                    </div>
+                ` + dayListHtml;
+
+                curr.setDate(curr.getDate() + 1);
+            }
+
+            const totalPct = totalPossibleTasks > 0 ? Math.round((totalCompletedTasks / totalPossibleTasks) * 100) : 0;
+            document.getElementById('stats-total-pct').innerText = `${totalPct}%`;
+            document.getElementById('stats-streak').innerHTML = `${streak} <i class="fa-solid fa-fire text-amber-500 text-lg"></i>`;
+
+            // Category breakdown
+            const catContainer = document.getElementById('category-stats-list');
+            catContainer.innerHTML = '';
+
+            Object.values(categoryStats).forEach(c => {
+                const catInfo = categories[c.cat];
+                const pct = c.totalHours > 0 ? Math.round((c.doneHours / c.totalHours) * 100) : 0;
+
+                const card = document.createElement('div');
+                card.className = "space-y-1.5";
+                card.innerHTML = `
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="font-medium ${catInfo.text}">${c.name}</span>
+                        <span class="text-slate-400 text-[11px]">${c.doneHours.toFixed(1)} / ${c.totalHours.toFixed(1)} ч (${pct}%)</span>
+                    </div>
+                    <div class="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-800">
+                        <div class="bg-indigo-500 h-full rounded-full" style="width: ${pct}%"></div>
+                    </div>
+                `;
+                catContainer.appendChild(card);
+            });
+
+            document.getElementById('daily-history-list').innerHTML = dayListHtml || '<div class="text-xs text-slate-500 text-center py-2">Нет данных</div>';
+        }
+
+        // Initialize with default date (Oct 18 or Today if after Oct 18)
+        const todayStr = toLocalDateStr(new Date());
+        if (todayStr >= START_DATE) {
+            currentDateStr = todayStr;
+        } else {
+            currentDateStr = START_DATE;
+        }
+
+        renderDailyTab();
+    </script>
+</body>
+</html>
